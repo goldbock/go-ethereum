@@ -1,5 +1,5 @@
-//go:build !js
-// +build !js
+//go:build js
+// +build js
 
 package core
 
@@ -9,6 +9,6 @@ import (
 
 // scwallet is not supported in browser yet.
 // Someome brave could implement it
-func fromSCPath(scpath string) accounts.Backend {
+func fromSCPath(ksLocation string, scpath string) accounts.Backend {
 	return nil
 }

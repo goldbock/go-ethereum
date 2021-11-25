@@ -2,6 +2,12 @@ module github.com/ethereum/go-ethereum
 
 go 1.15
 
+replace github.com/VictoriaMetrics/fastcache => github.com/goldbock/fastcache v1.7.1-0.20211125052919-7a019bed8552
+
+replace github.com/prometheus/tsdb => github.com/goldbock/tsdb v0.10.1-0.20211125102346-dc9e45cfcbbb
+
+replace github.com/syndtr/goleveldb => github.com/goldbock/goleveldb v1.0.1-0.20211125120124-26cc62dba5f0
+
 require (
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.7.0
@@ -46,6 +52,7 @@ require (
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/karalabe/usb v0.0.0-20211005121534-4c5740d64559
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/labstack/gommon v0.3.0
 	github.com/mattn/go-colorable v0.1.8
 	github.com/mattn/go-isatty v0.0.12
 	github.com/naoina/go-stringutil v0.1.0 // indirect
@@ -64,7 +71,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912
+	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0
 	golang.org/x/text v0.3.6
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce

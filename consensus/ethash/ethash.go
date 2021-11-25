@@ -25,15 +25,12 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
-	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -71,98 +68,6 @@ func init() {
 func isLittleEndian() bool {
 	n := uint32(0x01020304)
 	return *(*byte)(unsafe.Pointer(&n)) == 0x04
-}
-
-// memoryMap tries to memory map a file of uint32s for read only access.
-func memoryMap(path string, lock bool) (*os.File, mmap.MMap, []uint32, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	mem, buffer, err := memoryMapFile(file, false)
-	if err != nil {
-		file.Close()
-		return nil, nil, nil, err
-	}
-	for i, magic := range dumpMagic {
-		if buffer[i] != magic {
-			mem.Unmap()
-			file.Close()
-			return nil, nil, nil, ErrInvalidDumpMagic
-		}
-	}
-	if lock {
-		if err := mem.Lock(); err != nil {
-			mem.Unmap()
-			file.Close()
-			return nil, nil, nil, err
-		}
-	}
-	return file, mem, buffer[len(dumpMagic):], err
-}
-
-// memoryMapFile tries to memory map an already opened file descriptor.
-func memoryMapFile(file *os.File, write bool) (mmap.MMap, []uint32, error) {
-	// Try to memory map the file
-	flag := mmap.RDONLY
-	if write {
-		flag = mmap.RDWR
-	}
-	mem, err := mmap.Map(file, flag, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	// The file is now memory-mapped. Create a []uint32 view of the file.
-	var view []uint32
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&view))
-	header.Data = (*reflect.SliceHeader)(unsafe.Pointer(&mem)).Data
-	header.Cap = len(mem) / 4
-	header.Len = header.Cap
-	return mem, view, nil
-}
-
-// memoryMapAndGenerate tries to memory map a temporary file of uint32s for write
-// access, fill it with the data from a generator and then move it into the final
-// path requested.
-func memoryMapAndGenerate(path string, size uint64, lock bool, generator func(buffer []uint32)) (*os.File, mmap.MMap, []uint32, error) {
-	// Ensure the data folder exists
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return nil, nil, nil, err
-	}
-	// Create a huge temporary empty file to fill with data
-	temp := path + "." + strconv.Itoa(rand.Int())
-
-	dump, err := os.Create(temp)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if err = ensureSize(dump, int64(len(dumpMagic))*4+int64(size)); err != nil {
-		dump.Close()
-		os.Remove(temp)
-		return nil, nil, nil, err
-	}
-	// Memory map the file for writing and fill it with the generator
-	mem, buffer, err := memoryMapFile(dump, true)
-	if err != nil {
-		dump.Close()
-		os.Remove(temp)
-		return nil, nil, nil, err
-	}
-	copy(buffer, dumpMagic)
-
-	data := buffer[len(dumpMagic):]
-	generator(data)
-
-	if err := mem.Unmap(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := dump.Close(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := os.Rename(temp, path); err != nil {
-		return nil, nil, nil, err
-	}
-	return memoryMap(path, lock)
 }
 
 // lru tracks caches or datasets by their last use time, keeping at most N of them.
@@ -215,15 +120,6 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.futureItem = future
 	}
 	return item, future
-}
-
-// cache wraps an ethash cache with some metadata to allow easier concurrent use.
-type cache struct {
-	epoch uint64    // Epoch for which this cache is relevant
-	dump  *os.File  // File descriptor of the memory mapped cache
-	mmap  mmap.MMap // Memory map itself to unmap before releasing
-	cache []uint32  // The actual cache data content (may be memory mapped)
-	once  sync.Once // Ensures the cache is generated only once
 }
 
 // newCache creates a new ethash verification cache and returns it as a plain Go
@@ -291,16 +187,6 @@ func (c *cache) finalizer() {
 		c.dump.Close()
 		c.mmap, c.dump = nil, nil
 	}
-}
-
-// dataset wraps an ethash dataset with some metadata to allow easier concurrent use.
-type dataset struct {
-	epoch   uint64    // Epoch for which this cache is relevant
-	dump    *os.File  // File descriptor of the memory mapped cache
-	mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset []uint32  // The actual cache data content
-	once    sync.Once // Ensures the cache is generated only once
-	done    uint32    // Atomic flag to determine generation status
 }
 
 // newDataset creates a new ethash mining dataset and returns it as a plain Go
