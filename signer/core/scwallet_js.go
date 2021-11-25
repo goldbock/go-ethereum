@@ -3,6 +3,10 @@
 
 package core
 
+import (
+	"github.com/ethereum/go-ethereum/accounts"
+)
+
 // scwallet is not supported in browser yet.
 // Someome brave could implement it
 func fromSCPath(scpath string) accounts.Backend {
